@@ -3,8 +3,10 @@
 // @namespace    http://tampermonkey.net/
 // @version      3.5
 // @description  Muestra etiquetas limpias y dentro del cuadro de video. Sin sonido. Compatible con la página principal y de video. Actualización desde el menú Tampermonkey con animación de carga.
-// @author       Tú
+// @author       wernser412
 // @match        *://la.spankbang.com/*
+// @icon         https://github.com/wernser412/SpankBang-tags/raw/refs/heads/main/icono.ico
+// @downloadURL  https://github.com/wernser412/SpankBang-tags/raw/refs/heads/main/SpankBang%20-%20Mostrar%20etiquetas%20en%20el%20video.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
