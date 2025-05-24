@@ -1,5 +1,7 @@
 # SpankBang - Mostrar listas
 
+**Última Actualización:** 24 de mayo de 2025
+
 📁 Este script de Tampermonkey muestra etiquetas dentro del cuadro de video con las listas de reproducción a las que pertenece cada video.  
 ✅ Compatible con la página principal y las páginas de video.  
 
