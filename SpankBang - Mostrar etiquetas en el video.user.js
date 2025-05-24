@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      3.7
 // @description  Etiquetas coloridas con ícono e indicador de progreso. Carga automática, sin sonido. Botón desde el menú de Tampermonkey.
-// @author       Tú
+// @author       wernser412
 // @match        *://la.spankbang.com/*
 // @icon         https://raw.githubusercontent.com/wernser412/SpankBang-tags/refs/heads/main/icono.ico
 // @grant        GM_setValue
