@@ -1,12 +1,11 @@
 // ==UserScript==
-// @name         SpankBang - Mostrar etiquetas en el video
+// @name         SpankBang - Listas con colores, ícono y progreso
 // @namespace    http://tampermonkey.net/
-// @version      3.5
-// @description  Muestra etiquetas limpias y dentro del cuadro de video. Sin sonido. Compatible con la página principal y de video. Actualización desde el menú Tampermonkey con animación de carga.
-// @author       wernser412
+// @version      3.7
+// @description  Etiquetas coloridas con ícono e indicador de progreso. Carga automática, sin sonido. Botón desde el menú de Tampermonkey.
+// @author       Tú
 // @match        *://la.spankbang.com/*
-// @icon         https://github.com/wernser412/SpankBang-tags/raw/refs/heads/main/icono.ico
-// @downloadURL  https://github.com/wernser412/SpankBang-tags/raw/refs/heads/main/SpankBang%20-%20Mostrar%20etiquetas%20en%20el%20video.user.js
+// @icon         https://raw.githubusercontent.com/wernser412/SpankBang-tags/refs/heads/main/icono.ico
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
@@ -15,37 +14,46 @@
 (function () {
     'use strict';
 
+    const colores = [
+        "#f4a261", "#2a9d8f", "#e76f51", "#6a4c93", "#f6bd60", "#3d5a80",
+        "#ffb4a2", "#90be6d", "#a8dadc", "#b5838d", "#f94144", "#577590"
+    ];
+
     function mostrarMensajeCarga(texto, conSpinner = false) {
         let mensaje = document.getElementById('mensaje-carga-playlist');
         if (!mensaje) {
             mensaje = document.createElement('div');
             mensaje.id = 'mensaje-carga-playlist';
-            mensaje.style.position = 'fixed';
-            mensaje.style.top = '10px';
-            mensaje.style.right = '10px';
-            mensaje.style.backgroundColor = '#222';
-            mensaje.style.color = '#fff';
-            mensaje.style.padding = '10px 15px';
-            mensaje.style.borderRadius = '8px';
-            mensaje.style.zIndex = '10000';
-            mensaje.style.fontSize = '14px';
-            mensaje.style.display = 'flex';
-            mensaje.style.alignItems = 'center';
-            mensaje.style.gap = '8px';
-            mensaje.style.boxShadow = '0 0 8px rgba(0,0,0,0.4)';
+            Object.assign(mensaje.style, {
+                position: 'fixed',
+                top: '10px',
+                right: '10px',
+                backgroundColor: '#222',
+                color: '#fff',
+                padding: '10px 15px',
+                borderRadius: '8px',
+                zIndex: '10000',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 0 8px rgba(0,0,0,0.4)'
+            });
             if (conSpinner) {
                 const spinner = document.createElement('div');
-                spinner.style.width = '14px';
-                spinner.style.height = '14px';
-                spinner.style.border = '2px solid white';
-                spinner.style.borderTop = '2px solid transparent';
-                spinner.style.borderRadius = '50%';
-                spinner.style.animation = 'spin 1s linear infinite';
+                Object.assign(spinner.style, {
+                    width: '14px',
+                    height: '14px',
+                    border: '2px solid white',
+                    borderTop: '2px solid transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                });
                 mensaje.appendChild(spinner);
             }
             const textoSpan = document.createElement('span');
-            textoSpan.textContent = texto;
             textoSpan.className = 'sb-spinner-text';
+            textoSpan.textContent = texto;
             mensaje.appendChild(textoSpan);
             document.body.appendChild(mensaje);
 
@@ -83,7 +91,7 @@
                     GM_setValue("listasGuardadas", listas);
                     mostrarMensajeCarga("✅ Listas actualizadas.");
                     setTimeout(ocultarMensajeCarga, 1500);
-                    cargarListasYMostrar();
+                    cargarListasYMostrar(listas);
                 } else {
                     mostrarMensajeCarga("⚠ No se encontraron listas.");
                     setTimeout(ocultarMensajeCarga, 2000);
@@ -95,8 +103,8 @@
             });
     }
 
-    function cargarListasYMostrar() {
-        const listas = GM_getValue("listasGuardadas", {});
+    function cargarListasYMostrar(listas = null) {
+        if (!listas) listas = GM_getValue("listasGuardadas", {});
         if (!Object.keys(listas).length) {
             mostrarMensajeCarga("⚠ No hay listas guardadas. Usa el menú.");
             return;
@@ -110,6 +118,11 @@
         let listasCargadas = 0;
         const total = Object.keys(listas).length;
 
+        const updateProgreso = () => {
+            const porcentaje = Math.round((listasCargadas / total) * 100);
+            mostrarMensajeCarga(`Actualizando listas (${listasCargadas} de ${total})... ${porcentaje}%`, true);
+        };
+
         for (const [nombre, url] of Object.entries(listas)) {
             fetch(url).then(r => r.text()).then(html => {
                 const doc = new DOMParser().parseFromString(html, "text/html");
@@ -119,6 +132,14 @@
                     videosEnListas[id].push(nombre);
                 });
                 listasCargadas++;
+                updateProgreso();
+                if (listasCargadas === total) {
+                    agregarEtiquetas(videosEnListas);
+                }
+            }).catch(err => {
+                console.error("Error cargando lista:", err);
+                listasCargadas++;
+                updateProgreso();
                 if (listasCargadas === total) {
                     agregarEtiquetas(videosEnListas);
                 }
@@ -126,58 +147,67 @@
         }
     }
 
-function agregarEtiquetas(data) {
-    for (const [videoID, listas] of Object.entries(data)) {
-        const video = document.querySelector(
-            `.video-item[data-id="${videoID}"], [data-testid="video-item"][data-id="${videoID}"]`
-        );
-        if (!video) continue;
+    function agregarEtiquetas(data) {
+        const colorPorLista = {};
+        let colorIndex = 0;
 
-        // Buscar contenedor real de imagen
-        const img = video.querySelector('.thumb img, .video-thumb img, img');
-        const contenedor = img?.parentElement || video;
+        for (const [videoID, listas] of Object.entries(data)) {
+            const video = document.querySelector(`.video-item[data-id="${videoID}"], [data-testid="video-item"][data-id="${videoID}"]`);
+            if (!video) continue;
 
-        // Asegurar que tenga position: relative
-        contenedor.style.position = 'relative';
+            const contenedor = video.querySelector('.thumb, .video-thumb');
+            if (!contenedor) continue;
 
-        // Eliminar etiqueta previa si existe
-        const existente = contenedor.querySelector('.playlist-label');
-        if (existente) existente.remove();
+            const existente = contenedor.querySelector('.playlist-label');
+            if (existente) existente.remove();
 
-        // Crear etiqueta
-        const etiqueta = document.createElement('div');
-        etiqueta.className = 'playlist-label';
-        etiqueta.textContent = listas.join(", ");
-        Object.assign(etiqueta.style, {
-            position: 'absolute',
-            bottom: '6px',
-            left: '6px',
-            backgroundColor: 'rgba(0,0,0,0.75)',
-            color: '#fff',
-            padding: '4px 8px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            zIndex: '1000',
-            boxShadow: '0 0 4px rgba(0,0,0,0.3)',
-            maxWidth: '90%',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-            textOverflow: 'ellipsis',
-            pointerEvents: 'none'
-        });
+            const wrapper = document.createElement('div');
+            wrapper.style.position = 'absolute';
+            wrapper.style.bottom = '5px';
+            wrapper.style.left = '5px';
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.style.gap = '3px';
+            wrapper.style.zIndex = '1000';
 
-        contenedor.appendChild(etiqueta);
+            listas.forEach(lista => {
+                if (!colorPorLista[lista]) {
+                    colorPorLista[lista] = colores[colorIndex % colores.length];
+                    colorIndex++;
+                }
+                const etiqueta = document.createElement('div');
+                etiqueta.className = 'playlist-label';
+                etiqueta.textContent = `📁 ${lista}`;
+                Object.assign(etiqueta.style, {
+                    backgroundColor: colorPorLista[lista],
+                    color: 'black',
+                    padding: '2px 6px',
+                    borderRadius: '5px',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                });
+                wrapper.appendChild(etiqueta);
+            });
+
+            if (getComputedStyle(contenedor).position === 'static') {
+                contenedor.style.position = 'relative';
+            }
+
+            contenedor.appendChild(wrapper);
+        }
+
+        ocultarMensajeCarga();
     }
-
-    ocultarMensajeCarga();
-}
-
-
-
 
     function iniciar() {
         if (!window.location.pathname.includes("/users/playlists")) {
-            setTimeout(cargarListasYMostrar, 3000);
+            setTimeout(() => {
+                const listas = GM_getValue("listasGuardadas", {});
+                if (Object.keys(listas).length) {
+                    cargarListasYMostrar(listas);
+                }
+            }, 3000);
         }
     }
 
