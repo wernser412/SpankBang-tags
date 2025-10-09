@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         SpankBang - Listas con colores, ícono y progreso
+// @name         SpankBang - Listas con colores, ícono y progreso.
 // @namespace    http://tampermonkey.net/
-// @version      2025.09.19
+// @version      2025.10.08
 // @description  Etiquetas coloridas con ícono e indicador de progreso. Carga automática, sin sonido. Botón desde el menú de Tampermonkey.
 // @author       wernser412
 // @match        *://la.spankbang.com/*
@@ -19,6 +19,7 @@
         "#ffb4a2", "#90be6d", "#a8dadc", "#b5838d", "#f94144", "#577590"
     ];
 
+    // 🟢 Mostrar mensaje flotante (con spinner opcional)
     function mostrarMensajeCarga(texto, conSpinner = false) {
         let mensaje = document.getElementById('mensaje-carga-playlist');
         if (!mensaje) {
@@ -70,11 +71,13 @@
         }
     }
 
+    // 🔴 Ocultar mensaje flotante
     function ocultarMensajeCarga() {
         const mensaje = document.getElementById('mensaje-carga-playlist');
         if (mensaje) mensaje.remove();
     }
 
+    // 🔁 Actualizar listas guardadas desde /users/playlists
     function actualizarListasSinSalir() {
         mostrarMensajeCarga("Actualizando listas...", true);
         fetch("/users/playlists")
@@ -103,6 +106,7 @@
             });
     }
 
+    // 📂 Cargar listas guardadas
     function cargarListasYMostrar(listas = null) {
         if (!listas) listas = GM_getValue("listasGuardadas", {});
         if (!Object.keys(listas).length) {
@@ -113,6 +117,7 @@
         procesarVideosEnListas(listas);
     }
 
+    // 🔄 Procesar todas las listas guardadas
     function procesarVideosEnListas(listas) {
         const videosEnListas = {};
         let listasCargadas = 0;
@@ -147,29 +152,49 @@
         }
     }
 
+    // 🏷️ Agregar etiquetas con compatibilidad dual (estructura nueva y vieja)
     function agregarEtiquetas(data) {
         const colorPorLista = {};
         let colorIndex = 0;
 
         for (const [videoID, listas] of Object.entries(data)) {
-            const video = document.querySelector(`.video-item[data-id="${videoID}"], [data-testid="video-item"][data-id="${videoID}"]`);
+            const video = document.querySelector(
+                `.video-item[data-id="${videoID}"], [data-testid="video-item"][data-id="${videoID}"]`
+            );
             if (!video) continue;
 
-            const contenedor = video.querySelector('.thumb, .video-thumb');
+            // Intentar primero el método nuevo
+            let contenedor = video.querySelector('.thumb, .video-thumb');
+
+            // Si no existe (estructura nueva), usar el método del script viejo
+            if (!contenedor) {
+                const img = video.querySelector('.thumb img, .video-thumb img, img');
+                contenedor = img?.parentElement || video;
+            }
+
             if (!contenedor) continue;
 
-            const existente = contenedor.querySelector('.playlist-label');
-            if (existente) existente.remove();
+            // Asegurar posición relativa
+            if (getComputedStyle(contenedor).position === 'static') {
+                contenedor.style.position = 'relative';
+            }
 
+            // Eliminar etiquetas previas si existen
+            contenedor.querySelectorAll('.playlist-label').forEach(e => e.remove());
+
+            // Crear contenedor para las etiquetas
             const wrapper = document.createElement('div');
-            wrapper.style.position = 'absolute';
-            wrapper.style.bottom = '5px';
-            wrapper.style.left = '5px';
-            wrapper.style.display = 'flex';
-            wrapper.style.flexDirection = 'column';
-            wrapper.style.gap = '3px';
-            wrapper.style.zIndex = '1000';
+            Object.assign(wrapper.style, {
+                position: 'absolute',
+                bottom: '5px',
+                left: '5px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '3px',
+                zIndex: '1000'
+            });
 
+            // Crear las etiquetas individuales
             listas.forEach(lista => {
                 if (!colorPorLista[lista]) {
                     colorPorLista[lista] = colores[colorIndex % colores.length];
@@ -185,14 +210,11 @@
                     borderRadius: '5px',
                     fontSize: '11px',
                     fontWeight: 'bold',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                    pointerEvents: 'none'
                 });
                 wrapper.appendChild(etiqueta);
             });
-
-            if (getComputedStyle(contenedor).position === 'static') {
-                contenedor.style.position = 'relative';
-            }
 
             contenedor.appendChild(wrapper);
         }
@@ -200,6 +222,7 @@
         ocultarMensajeCarga();
     }
 
+    // 🚀 Iniciar script automáticamente en cualquier página (excepto /users/playlists)
     function iniciar() {
         if (!window.location.pathname.includes("/users/playlists")) {
             setTimeout(() => {
