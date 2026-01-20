@@ -5,7 +5,7 @@
 // @description  Etiquetas coloridas con ícono e indicador de progreso. Carga automática, sin volver a descargar listas al recargar. Botón desde Tampermonkey. Aviso si no hay listas.
 // @author       wernser412
 // @match        *://la.spankbang.com/*
-// @icon         https://github.com/wernser412/SpankBang-tags/blob/main/ICONO.ico
+// @icon         https://github.com/wernser412/SpankBang-tags/blob/main/ICONO.ico?raw=true
 // @downloadURL  https://github.com/wernser412/SpankBang-tags/raw/refs/heads/main/SpankBang%20-%20Listas%20PRO.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
