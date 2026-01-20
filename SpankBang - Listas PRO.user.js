@@ -1,11 +1,12 @@
 // ==UserScript==
-// @name         SpankBang - Listas con colores, ícono y progreso.
+// @name         SpankBang - Listas PRO
 // @namespace    http://tampermonkey.net/
-// @version      2025.10.08
-// @description  Etiquetas coloridas con ícono e indicador de progreso. Carga automática, sin sonido. Botón desde el menú de Tampermonkey.
+// @version      2026.01.19
+// @description  Etiquetas coloridas con ícono e indicador de progreso. Carga automática, sin volver a descargar listas al recargar. Botón desde Tampermonkey. Aviso si no hay listas.
 // @author       wernser412
 // @match        *://la.spankbang.com/*
 // @icon         https://github.com/wernser412/SpankBang-tags/raw/refs/heads/main/ICONO.ico
+// @downloadURL  https://github.com/wernser412/TMOHentai-Tags/raw/refs/heads/main/TMOHentai%20-%20Listas%20PRO.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
@@ -19,7 +20,7 @@
         "#ffb4a2", "#90be6d", "#a8dadc", "#b5838d", "#f94144", "#577590"
     ];
 
-    // 🟢 Mostrar mensaje flotante (con spinner opcional)
+    // ---------------------- Mensajes flotantes ----------------------
     function mostrarMensajeCarga(texto, conSpinner = false) {
         let mensaje = document.getElementById('mensaje-carga-playlist');
         if (!mensaje) {
@@ -71,13 +72,20 @@
         }
     }
 
-    // 🔴 Ocultar mensaje flotante
     function ocultarMensajeCarga() {
         const mensaje = document.getElementById('mensaje-carga-playlist');
         if (mensaje) mensaje.remove();
     }
 
-    // 🔁 Actualizar listas guardadas desde /users/playlists
+    // ---------------------- Verificar listas guardadas ----------------------
+    function verificarActualizacionSpankBang() {
+        const listas = GM_getValue("listasGuardadas", {});
+        if (!Object.keys(listas).length) {
+            mostrarMensajeCarga("⚠️ Falta actualizar listas (Tampermonkey)");
+        }
+    }
+
+    // ---------------------- Actualizar listas manual ----------------------
     function actualizarListasSinSalir() {
         mostrarMensajeCarga("Actualizando listas...", true);
         fetch("/users/playlists")
@@ -92,9 +100,11 @@
                 });
                 if (Object.keys(listas).length > 0) {
                     GM_setValue("listasGuardadas", listas);
+                    ocultarMensajeCarga();
                     mostrarMensajeCarga("✅ Listas actualizadas.");
                     setTimeout(ocultarMensajeCarga, 1500);
-                    cargarListasYMostrar(listas);
+                    // Procesar videos y guardar
+                    procesarVideosEnListas(listas, true);
                 } else {
                     mostrarMensajeCarga("⚠ No se encontraron listas.");
                     setTimeout(ocultarMensajeCarga, 2000);
@@ -106,19 +116,8 @@
             });
     }
 
-    // 📂 Cargar listas guardadas
-    function cargarListasYMostrar(listas = null) {
-        if (!listas) listas = GM_getValue("listasGuardadas", {});
-        if (!Object.keys(listas).length) {
-            mostrarMensajeCarga("⚠ No hay listas guardadas. Usa el menú.");
-            return;
-        }
-        mostrarMensajeCarga("Cargando etiquetas...", true);
-        procesarVideosEnListas(listas);
-    }
-
-    // 🔄 Procesar todas las listas guardadas
-    function procesarVideosEnListas(listas) {
+    // ---------------------- Procesar listas y videos ----------------------
+    function procesarVideosEnListas(listas, guardarVideos = false) {
         const videosEnListas = {};
         let listasCargadas = 0;
         const total = Object.keys(listas).length;
@@ -139,20 +138,28 @@
                 listasCargadas++;
                 updateProgreso();
                 if (listasCargadas === total) {
+                    if (guardarVideos) {
+                        GM_setValue("videosEnListas", videosEnListas);
+                    }
                     agregarEtiquetas(videosEnListas);
+                    setTimeout(ocultarMensajeCarga, 1500);
                 }
             }).catch(err => {
                 console.error("Error cargando lista:", err);
                 listasCargadas++;
                 updateProgreso();
                 if (listasCargadas === total) {
+                    if (guardarVideos) {
+                        GM_setValue("videosEnListas", videosEnListas);
+                    }
                     agregarEtiquetas(videosEnListas);
+                    setTimeout(ocultarMensajeCarga, 1500);
                 }
             });
         }
     }
 
-    // 🏷️ Agregar etiquetas con compatibilidad dual (estructura nueva y vieja)
+    // ---------------------- Agregar etiquetas a videos ----------------------
     function agregarEtiquetas(data) {
         const colorPorLista = {};
         let colorIndex = 0;
@@ -163,26 +170,19 @@
             );
             if (!video) continue;
 
-            // Intentar primero el método nuevo
             let contenedor = video.querySelector('.thumb, .video-thumb');
-
-            // Si no existe (estructura nueva), usar el método del script viejo
             if (!contenedor) {
                 const img = video.querySelector('.thumb img, .video-thumb img, img');
                 contenedor = img?.parentElement || video;
             }
-
             if (!contenedor) continue;
 
-            // Asegurar posición relativa
             if (getComputedStyle(contenedor).position === 'static') {
                 contenedor.style.position = 'relative';
             }
 
-            // Eliminar etiquetas previas si existen
             contenedor.querySelectorAll('.playlist-label').forEach(e => e.remove());
 
-            // Crear contenedor para las etiquetas
             const wrapper = document.createElement('div');
             Object.assign(wrapper.style, {
                 position: 'absolute',
@@ -194,7 +194,6 @@
                 zIndex: '1000'
             });
 
-            // Crear las etiquetas individuales
             listas.forEach(lista => {
                 if (!colorPorLista[lista]) {
                     colorPorLista[lista] = colores[colorIndex % colores.length];
@@ -218,22 +217,26 @@
 
             contenedor.appendChild(wrapper);
         }
-
-        ocultarMensajeCarga();
     }
 
-    // 🚀 Iniciar script automáticamente en cualquier página (excepto /users/playlists)
+    // ---------------------- Iniciar script ----------------------
     function iniciar() {
         if (!window.location.pathname.includes("/users/playlists")) {
             setTimeout(() => {
-                const listas = GM_getValue("listasGuardadas", {});
-                if (Object.keys(listas).length) {
-                    cargarListasYMostrar(listas);
+                // Usar videos guardados en lugar de descargar
+                const videosEnListas = GM_getValue("videosEnListas", {});
+                if (Object.keys(videosEnListas).length) {
+                    agregarEtiquetas(videosEnListas);
                 }
-            }, 3000);
+            }, 1000);
         }
     }
 
+    // ---------------------- Menú ----------------------
     GM_registerMenuCommand("🔄 Actualizar listas", actualizarListasSinSalir);
+
+    // ---------------------- Auto ----------------------
+    verificarActualizacionSpankBang();
     iniciar();
+
 })();
