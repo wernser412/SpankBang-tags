@@ -22,7 +22,7 @@
 2. Abre este script desde GitHub y haz clic en `Raw`.
 3. Tampermonkey lo detectará y ofrecerá instalarlo.
 
-> También puedes hacer click en [`userscript.js`](https://github.com/wernser412/SpankBang-tags/raw/refs/heads/main/SpankBang%20-%20Mostrar%20etiquetas%20en%20el%20video.user.js) para instalar automaticamente en Tampermonkey.
+> También puedes hacer click en [`userscript.js`](https://github.com/wernser412/SpankBang-tags/raw/refs/heads/main/SpankBang%20-%20Listas%20PRO.user.js) para instalar automaticamente en Tampermonkey.
 
 ---
 
